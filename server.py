@@ -1,6 +1,6 @@
 #  coding: utf-8 
 import socketserver
-
+import os
 # Copyright 2013 Abram Hindle, Eddie Antonio Santos
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -30,9 +30,49 @@ import socketserver
 class MyWebServer(socketserver.BaseRequestHandler):
     
     def handle(self):
-        self.data = self.request.recv(1024).strip()
-        print ("Got a request of: %s\n" % self.data)
-        self.request.sendall(bytearray("OK",'utf-8'))
+        self.data = self.request.recv(1024).strip().decode("utf-8")
+        s = self.data.splitlines()
+        block1 = s[0].split(" ")
+        get_request = block1[0]
+        directory = block1[1]
+
+        if get_request == "GET" and (directory == "/" or directory == "/deep/"):
+            if directory == "/":
+                self.do_GET(1)
+            elif directory == "/deep/":
+                self.do_GET(2) 
+        elif (get_request == "POST" or get_request == "PUT" or get_request == "Delete"):
+            self.request.sendall(bytes("HTTP/1.1 405 METHOD NOT ALLOWED\n","utf-8"))
+            self.request.recv(1024).strip().decode("utf-8")
+        elif get_request == "GET" and directory == "/deep":
+            self.request.sendall(bytes("HTTP/1.1 301 Moved Permanently\nLocation: http://127.0.0.1:8080/deep/\n","utf-8"))
+            self.request.recv(1024).strip().decode("utf-8")
+        else:
+            self.request.sendall(bytes("HTTP/1.1 404 NOT FOUND\n","utf-8"))
+            self.request.recv(1024).strip().decode("utf-8")
+
+    def do_GET(self, depth):
+        path = "www/"
+        html = "index.html"
+        deep_path = "www/deep/"
+
+        content = "Content-type: text/html; utf-8\n"
+        status = "HTTP/1.1 200 OK\n"
+
+        if depth == 1 and os.path.exists(path + html):
+            file = open(os.path.abspath(path + html), "r")
+            data = file.read()
+            data = status + content + data
+            self.request.sendall(bytes(data, "UTF-8"))
+            self.request.recv(1024).strip().decode("utf-8")
+
+        elif depth == 2 and os.path.exists(deep_path + html):
+            file = open(os.path.abspath(path + html), "r")
+            data = file.read()
+            data = status + content + data
+            self.request.sendall(bytes(data, "UTF-8"))
+            self.request.recv(1024).strip().decode("utf-8")
+
 
 if __name__ == "__main__":
     HOST, PORT = "localhost", 8080
