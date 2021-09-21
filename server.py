@@ -1,6 +1,7 @@
 #  coding: utf-8 
 import socketserver
 import os
+from urllib.parse import urlparse
 # Copyright 2013 Abram Hindle, Eddie Antonio Santos
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -36,42 +37,43 @@ class MyWebServer(socketserver.BaseRequestHandler):
         get_request = block1[0]
         directory = block1[1]
 
-        if get_request == "GET" and (directory == "/" or directory == "/deep/"):
-            if directory == "/":
-                self.do_GET(1)
-            elif directory == "/deep/":
-                self.do_GET(2) 
+        if get_request == "GET" and self.check_directory(directory):
+            self.do_GET(directory)
         elif (get_request == "POST" or get_request == "PUT" or get_request == "Delete"):
-            self.request.sendall(bytes("HTTP/1.1 405 METHOD NOT ALLOWED\n","utf-8"))
+            self.request.sendall(bytes("HTTP/1.1 405 METHOD NOT ALLOWED\r\n\r\n","utf-8"))
             self.request.recv(1024).strip().decode("utf-8")
         elif get_request == "GET" and directory == "/deep":
-            self.request.sendall(bytes("HTTP/1.1 301 Moved Permanently\nLocation: http://127.0.0.1:8080/deep/\n","utf-8"))
+            self.request.sendall(bytes("HTTP/1.1 301 Moved Permanently\r\nLocation: http://127.0.0.1:8080/deep/\r\n\r\n","utf-8"))
             self.request.recv(1024).strip().decode("utf-8")
         else:
-            self.request.sendall(bytes("HTTP/1.1 404 NOT FOUND\n","utf-8"))
+            self.request.sendall(bytes("HTTP/1.1 404 NOT FOUND\r\n\r\n","utf-8"))
             self.request.recv(1024).strip().decode("utf-8")
 
-    def do_GET(self, depth):
+    def do_GET(self, directory):
         path = "www/"
         html = "index.html"
-        deep_path = "www/deep/"
 
-        content = "Content-type: text/html; utf-8\n"
-        status = "HTTP/1.1 200 OK\n"
+        f = os.path.abspath(path + directory + html)
+        sz = os.path.getsize(f)
+        sz = str(sz)
+        content = "Content-type: text/html; utf-8\r\n"
+        status = "HTTP/1.1 200 OK\r\n"
+        octet = "content-length: {sz}\r\n\r\n"
+        connection = "Connection: close\r\n\r\n"
 
-        if depth == 1 and os.path.exists(path + html):
-            file = open(os.path.abspath(path + html), "r")
-            data = file.read()
-            data = status + content + data
-            self.request.sendall(bytes(data, "UTF-8"))
-            self.request.recv(1024).strip().decode("utf-8")
-
-        elif depth == 2 and os.path.exists(deep_path + html):
-            file = open(os.path.abspath(path + html), "r")
-            data = file.read()
-            data = status + content + data
-            self.request.sendall(bytes(data, "UTF-8"))
-            self.request.recv(1024).strip().decode("utf-8")
+        file = open(f, "r")
+        data = file.read()
+        data = status + content + connection + data
+        self.request.sendall(bytes(data, "UTF-8"))
+        self.request.recv(1024).strip().decode("utf-8")
+        
+    def check_directory(self, dir):
+        path = "www/"
+        directory = dir.split("/")
+        if directory[len(directory)-1] == "" and os.path.isdir(os.path.abspath(path + dir)):
+            return True
+        else:
+            return False
 
 
 if __name__ == "__main__":
