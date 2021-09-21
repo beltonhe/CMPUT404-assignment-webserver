@@ -58,12 +58,12 @@ class MyWebServer(socketserver.BaseRequestHandler):
         sz = str(sz)
         content = "Content-type: text/html; utf-8\r\n"
         status = "HTTP/1.1 200 OK\r\n"
-        octet = "content-length: {sz}\r\n\r\n"
+        octet = "content-length: " + sz + "\r\n"
         connection = "Connection: close\r\n\r\n"
 
         file = open(f, "r")
         data = file.read()
-        data = status + content + connection + data
+        data = status + content + octet + connection + data
         self.request.sendall(bytes(data, "UTF-8"))
         self.request.recv(1024).strip().decode("utf-8")
         
