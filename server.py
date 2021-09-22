@@ -1,7 +1,6 @@
 #  coding: utf-8 
 import socketserver
 import os
-from urllib.parse import urlparse
 # Copyright 2013 Abram Hindle, Eddie Antonio Santos
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -34,46 +33,125 @@ class MyWebServer(socketserver.BaseRequestHandler):
         self.data = self.request.recv(1024).strip().decode("utf-8")
         s = self.data.splitlines()
         block1 = s[0].split(" ")
+        block2 = s[1].split(": ")
+
+        # components of the resquest, GET, directory/file and host
         get_request = block1[0]
         directory = block1[1]
+        directory = "www" + directory
+        host = block2[1]
 
-        if get_request == "GET" and self.check_directory(directory):
-            self.do_GET(directory)
-        elif (get_request == "POST" or get_request == "PUT" or get_request == "Delete"):
-            self.request.sendall(bytes("HTTP/1.1 405 METHOD NOT ALLOWED\r\n\r\n","utf-8"))
-            self.request.recv(1024).strip().decode("utf-8")
-        elif get_request == "GET" and directory == "/deep":
-            self.request.sendall(bytes("HTTP/1.1 301 Moved Permanently\r\nLocation: http://127.0.0.1:8080/deep/\r\n\r\n","utf-8"))
-            self.request.recv(1024).strip().decode("utf-8")
+        if get_request == "GET":
+            #print("do_GET started")
+            self.do_GET(directory, host)
         else:
-            self.request.sendall(bytes("HTTP/1.1 404 NOT FOUND\r\n\r\n","utf-8"))
-            self.request.recv(1024).strip().decode("utf-8")
+            self.Response(directory, host, "405")
+            
+    def do_GET(self, directory, host):
+        if self.check_directory(directory) == "301":
+            self.Response(directory, host, "301")
+        elif self.check_directory(directory) == "404":
+            self.Response(directory, host, "404")
+        elif self.check_directory(directory) == "file": # 200 OK, open file
+            self.Response(directory, host, "file")
+        elif self.check_directory(directory) == "directory": # 200 OK, read html by default
+            self.Response(directory, host, "directory")
+        
+    def check_directory(self, directory):
+        #print("check_directory started")
+        # new list directory for 301 check purpose
+        dir = directory.split("/")
+        # checking to see if it end with /
+        if dir[len(dir)-1] != "":
+            # could be a file
+            # checks to make sure IT IS a file
+            if os.path.isfile(os.path.abspath(directory)):
+                #print("it's a file")
+                return "file"
+            elif os.path.isdir(os.path.abspath(directory)):
+                # it is an incompete directory
+                #print("301")
+                return "301"
+            else:
+                # file or directory just doesnt exist
+                #print("404 first")
+                return "404"
+        else:
+            # could be a directory
+            # checks to make sure IT IS a directory with an index html
+            if self.valid_directory(directory):
+                #print("directory")
+                return "directory"
+            else:
+                # has a slash but not index to be found
+                #print("404 last")
+                return "404"
 
-    def do_GET(self, directory):
-        path = "www/"
+    def valid_directory(self, directory):
+        html = "index.html"
+        # checks if it has index file in directory
+        return os.path.isfile(os.path.abspath(directory + html))
+
+    def Response(self, directory, host, status):
         html = "index.html"
 
-        f = os.path.abspath(path + directory + html)
+        if status == "301":
+            protocol = "HTTP/1.1 301 Moved Permanently\r\n"
+            Location = "Location: Http://" + host + "/" + "deep" + "/" + "\r\n"
+            content = "Content-type: text/plain; charset=UTF-8\r\n"
+            connection = "Connection: close\r\n\r\n"
+
+            all_data = protocol + Location + content + connection
+            self.request.sendall(bytearray(all_data, "UTF-8"))
+
+        elif status == "404":
+            protocol = "HTTP/1.1 404 Not Found\r\n"
+            content = "Content-type: text/plain; charset=UTF-8\r\n"
+            connection = "Connection: close\r\n\r\n"
+
+            all_data = protocol + content + connection
+            self.request.sendall(bytearray(all_data, "UTF-8"))
+
+        elif status == "405":
+            protocol = "HTTP/1.1 405 Method Not Allowed\r\n"
+            content = "Content-type: text/plain; charset=UTF-8\r\n"
+            connection = "Connection: close\r\n\r\n"
+
+            all_data = protocol + content + connection
+            self.request.sendall(bytearray(all_data, "UTF-8"))
+
+        elif status == "file":
+            protocol, content, octet, connection, data = self.build(directory, status)
+            all_data = protocol + content + octet + connection + data
+            self.request.sendall(bytearray(all_data, "UTF-8"))
+
+        elif status == "directory":
+            # directory default is index.html
+            directory = directory + html
+            protocol, content, octet, connection, data = self.build(directory, status)
+            all_data = protocol + content + octet + connection + data
+            self.request.sendall(bytearray(all_data, "UTF-8"))            
+
+
+    def build(self, directory, status):
+        # getting the content type eg. html, css
+        contype = directory.split("/")
+        contype = contype[len(contype)-1]
+        contype = contype.split(".")
+        contype = contype[len(contype)-1]
+
+        protocol = "HTTP/1.1 200 OK\r\n"
+        content = "Content-type: text/" + contype + "; charset=UTF-8\r\n"
+        f = os.path.abspath(directory)
         sz = os.path.getsize(f)
         sz = str(sz)
-        content = "Content-type: text/html; utf-8\r\n"
-        status = "HTTP/1.1 200 OK\r\n"
         octet = "content-length: " + sz + "\r\n"
         connection = "Connection: close\r\n\r\n"
 
         file = open(f, "r")
         data = file.read()
-        data = status + content + octet + connection + data
-        self.request.sendall(bytes(data, "UTF-8"))
-        self.request.recv(1024).strip().decode("utf-8")
-        
-    def check_directory(self, dir):
-        path = "www/"
-        directory = dir.split("/")
-        if directory[len(directory)-1] == "" and os.path.isdir(os.path.abspath(path + dir)):
-            return True
-        else:
-            return False
+        #print("build compete")
+        return protocol, content, octet, connection, data
 
 
 if __name__ == "__main__":
