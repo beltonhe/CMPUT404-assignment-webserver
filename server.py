@@ -39,6 +39,8 @@ class MyWebServer(socketserver.BaseRequestHandler):
         get_request = block1[0]
         directory = block1[1]
         directory = "www" + directory
+        if "/../" in directory:
+            self.Response(directory, host, "404")
         host = block2[1]
 
         if get_request == "GET":
