@@ -20,7 +20,7 @@ server.py contains contributions from:
 * Mandy Meindersma 
 
 * Completed by jinzhou (Belton He)
-* collaborated with Kanishk, Xinjian and Kar3
+* collaborated with Kanishk, Xinjian, renyu and Kar3
 
 But the server.py example is derived from the python documentation
 examples thus some of the code is Copyright © 2001-2013 Python
