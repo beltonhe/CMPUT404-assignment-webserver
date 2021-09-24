@@ -19,7 +19,7 @@ server.py contains contributions from:
 * Jackson Z Chang
 * Mandy Meindersma 
 
-* Completed by Belton He
+* Completed by jinzhou
 * collaborated with Kanishk, Xinjian and Kar3
 
 But the server.py example is derived from the python documentation
