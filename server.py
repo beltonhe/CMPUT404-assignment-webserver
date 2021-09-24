@@ -98,15 +98,16 @@ class MyWebServer(socketserver.BaseRequestHandler):
     def Response(self, directory, host, status):
         html = "index.html"
 
-        # not perfect, also issue of /.../.../ in inital stage
+        # not perfect
         if status == "301":
             protocol = "HTTP/1.1 301 Moved Permanently\r\n"
-            Location = "Location: Http://" + host + "/" + "deep" + "/" + "\r\n"
+            Location = "Location: HTTP://" + host + "/" + "deep" + "/" + "\r\n"
             content = "Content-type: application/octet-stream; charset=UTF-8\r\n"
             connection = "Connection: close\r\n\r\n"
 
             all_data = protocol + Location + content + connection
             self.request.sendall(bytearray(all_data, "UTF-8"))
+
 
         elif status == "404":
             protocol = "HTTP/1.1 404 Not Found\r\n"
